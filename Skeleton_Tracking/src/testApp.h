@@ -5,18 +5,22 @@
 #include "ofMain.h"
 #include "ofxHardwareDriver.h"
 
-#define NUMPOS 30
-#define NUMVEL 29
+#define NUMPOS 50
+#define NUMVEL 49
+
+#define HANDCHECK 0
 
 class GRID{
 public:
     int Xdim = 5;
-    int Ydim = 3;
+    int Ydim = 4;
     int NumRgns = Xdim*Ydim;
     double Width,Height;
     double stride;
     ofPoint corner[4];
     ofColor color = ofColor::black;
+    
+    
     
     void setColor(ofColor collar){
         color = collar;
@@ -52,7 +56,7 @@ public:
         }
     }
     
-    void setRegions(){
+    void checkRegions(){
         
     }
 };
@@ -63,11 +67,14 @@ public:
     ofColor color = ofColor::magenta;
     ofPoint refPnt;
     double offSetDist;
+    int label;
     int height;
     int width;
-    int buttClkInt=0;
+    int buttClkInt=-1;
     bool handCheck;
     bool isOn=false;
+    string msg;
+    string videoName;
     
     void setHandCheck(ofPoint hand){
         if(hand.x>topLeft.x && hand.y>topLeft.y && hand.x<topLeft.x+width && hand.y<topLeft.y+height) handCheck=true;
@@ -92,10 +99,13 @@ public:
         offSetDist = 2.0*offSetDist;
     }
     void drawButton(){
-        ofSetColor(color);
+        ofEnableAlphaBlending();
+        ofSetColor(color,127);
         ofRect(topLeft.x, topLeft.y, width, height);
+        ofDisableAlphaBlending();
+        msg = ofToString(label);
     }
-    void pushButton(int clkCounter){
+    void pushButton(int &clkCounter){
         if (!isOn) {
             if ( clkCounter != buttClkInt ){
                 isOn = true;
@@ -123,18 +133,20 @@ public:
     ofPoint PosAvg;
     ofPoint VelAvg;
     ofPoint WrldPos;
+    ofPoint ProjPos;
     ofPoint clkPos;
     ofPoint referencePnt;
     ofPoint clkOffset;
     ofxOpenNIJoint Jnt;
     ofColor clkColor = ofColor::black;
+    ofColor handColor;
     
     bool frwdChk = false;
     bool bckChk = false;
     bool clkChk = false;
     
     double dT;
-    double VelTol = 3.0;
+    double VelTol = 4.0;
     double XYvel;
     double XYvelAvg;
     double clickTime;
@@ -146,7 +158,34 @@ public:
     /////////////
     // MEMBERS //
     /////////////
-    void updateHand(){
+    void update(){
+        WrldPos = Jnt.getWorldPosition();
+        ProjPos = Jnt.getProjectivePosition();
+        PosAvg.set(0.0,0.0,0.0);
+        XYvelAvg = 0.0;
+        dT = ofGetFrameRate();
+        dT = 1.0/dT;
+        
+        for (i=0; i<NUMPOS; i++) {
+            Pos[i] = Pos[i+1];
+            PosAvg += Pos[i];
+        }
+        Pos[NUMPOS] = WrldPos*0.001;
+        PosAvg += Pos[NUMPOS];
+        PosAvg /= (double)NUMPOS;
+        
+        Vel[NUMVEL] = (Pos[NUMPOS] - Pos[NUMPOS-1])/dT;            // check for forward back motion
+        if ( Vel[NUMVEL].z > -VelTol && Vel[NUMVEL].z < VelTol )
+            Vel[NUMVEL].z = 0.0;
+        
+        for ( i=0; i<NUMVEL; i++ )
+            Vel[i] = Vel[i+1];
+        
+        clickCheck();
+        
+    }
+    
+    void clickCheck(){
         if ( ofGetSystemTimeMicros()-clickTime > clickResetTime )
             clkChk=false;
         
@@ -154,28 +193,7 @@ public:
             ofPoint frwdClkPos, bckClkPos;
             
             frwdChk = bckChk = clkChk = false;
-            WrldPos = Jnt.getWorldPosition();
-            PosAvg.set(0.0,0.0,0.0);
-            XYvelAvg = 0.0;
-            dT = ofGetFrameRate();
-            dT = 1.0/dT;
             
-            for (i=0; i<NUMPOS; i++) {
-                Pos[i] = Pos[i+1];
-                PosAvg += Pos[i];
-            }
-            Pos[NUMPOS] = WrldPos*0.001;
-            PosAvg += Pos[NUMPOS];
-            PosAvg /= (double)NUMPOS;
-            
-            Vel[NUMVEL] = (Pos[NUMPOS] - Pos[NUMPOS-1])/dT;
-            
-            // check for forward back motion
-            if ( Vel[NUMVEL].z > -VelTol && Vel[NUMVEL].z < VelTol )
-                Vel[NUMVEL].z = 0.0;
-            
-            for ( i=0; i<NUMVEL; i++ )
-                Vel[i] = Vel[i+1];
             for ( i=0; i<NUMVEL; i++ ) {
                 if ( Vel[i].z < -VelTol ) {
                     frwdChk = true;
@@ -197,19 +215,21 @@ public:
             if ( frwdChk && bckChk ) {
                 clkChk = true;
                 clkOffset = (frwdClkPos + bckClkPos)*0.5 - referencePnt;
-                clkCounter++;
                 clickTime = ofGetSystemTimeMicros();
+                clkCounter++;
             }
-            
             
             clkPos = referencePnt + clkOffset;
         }
-        
     }
     
     void drawClk(){
         ofSetColor(clkColor);
         ofCircle(clkPos.x, clkPos.y, 5);
+    }
+    void drawHand(){
+        ofSetColor(handColor);
+        ofCircle(ProjPos.x, ProjPos.y,10);
     }
 };
 
@@ -218,11 +238,24 @@ class testApp : public ofBaseApp{
     
 public:
     
+    int windowWidth, windowHeight;
+    int i, j, k;
+    string msg[3];
+    string MSG;
+    int dbplx = 640;  // debug print location x
+    int dbply = 40;  // debug print location y
+    int dbpo = 24;   // debug print offset
+    int statementCounter = 0;
+    
+    ofPoint origin;
+    
+    ///////////////////////////
+    // standard of functions //
+    ///////////////////////////
 	void setup();
 	void update();
 	void draw();
     void exit();
-    
 	void keyPressed  (int key);
 	void keyReleased(int key);
 	void mouseMoved(int x, int y );
@@ -230,28 +263,79 @@ public:
 	void mousePressed(int x, int y, int button);
 	void mouseReleased(int x, int y, int button);
 	void windowResized(int w, int h);
-    
     void userEvent(ofxOpenNIUserEvent & event);
     
-    bool buttonCheck(ofPoint pnt, ofPoint btnPnt);
+    bool overheadCheck(ofPoint leftHand, ofPoint rightHand, ofPoint head, ofPoint neck);
+    int overheadClickCounter = 0;
+    bool overheadChk = false;
+    
+    int RIGHTHAND = 10000;
+    int LEFTHAND = 20000;
+    
+    int MaxNumUsers = 1;
     
     int kinWidth, kinHeight;
     
-    // button stuff
-    BUTTON butt[6];
-    int buttWidth=60, buttHeight=60, numButts=6;
-    
-    double dT = 0.5;
-    double VelTol = 0.5;
+    int buttWidth=60, buttHeight=60, numButts=5;
+    BUTTON butt[20];
     
 	ofxOpenNI openNIDevice;
+    int numUsers = 0;
     ofxHardwareDriver kinectHardwareDriver;
+    int kinectTiltAngle;
     ofTrueTypeFont verdana;
     
     GRID grid;
     
+    // RIGHT HAND STUFF
     HAND rightHand;
+    ofxOpenNIJoint rightHandJnt;
+    ofPoint rightHandPnt;
+    ofPoint rhWrldPos;
+    
+    // LEFT HAND STUFF
     HAND leftHand;
+    ofxOpenNIJoint leftHandJnt;
+    ofPoint leftHandPnt;
+    ofPoint lhWrldPos;
+    
+    // MISCELLANEOUS body parts STUFF
+    ofPoint torsoPnt;
+    ofxOpenNIJoint headJnt;
+    
+    ofPoint neckPnt;
+    ofxOpenNIJoint neckJnt;
+    
+    ofPoint headPnt;
+    ofxOpenNIJoint torsoJnt;
+    
+    ofPoint leftKneePnt;
+    ofxOpenNIJoint leftKneeJnt;
+    
+    ofPoint rightKneePnt;
+    ofxOpenNIJoint rightKneeJnt;
+    
+    ofPoint leftHipPnt;
+    ofxOpenNIJoint leftHipJnt;
+    
+    ofPoint rightHipPnt;
+    ofxOpenNIJoint rightHipJnt;
+    
+    ofPoint videoTriggerPnt;
+    
+    
+    // video player handles
+    ofVideoPlayer videoPlayer;
+    ofImage videoImage;
+    ofPoint imageLocation;
+    double imageWidth, imageHeight;
+    string videoName;
+    int curr_video = -1;
+    bool isVideoPlaying = false;
+    bool isVideoLoaded = false;
+    int testButton = 14;
+    int numMovies = 20;
+    
     
 };
 
