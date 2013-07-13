@@ -131,15 +131,18 @@ public:
 
 class GRID{
 public:
-    int Xdim = 5;
-    int Ydim = 4;
+    static const int Xdim = 5;
+    static const int Ydim = 4;
     int NumRgns = Xdim*Ydim;
     double Width,Height;
-    double stride;
+    double Xstride;
+    double Ystride;
+    ofPoint regionCorner[Xdim*Ydim];
     ofPoint corner[4];
     ofColor color = ofColor::black;
     
-    
+    int i, j, k;
+    double ii, jj, kk;
     
     void setColor(ofColor collar){
         color = collar;
@@ -152,6 +155,18 @@ public:
         corner[1].set(0,0);
         corner[2].set(width,0);
         corner[3].set(width,height);
+        
+        Xstride = Width/(double)Xdim;
+        Ystride = Height/(double)Ydim;
+        
+        for ( i=0; i<Ydim; i++ ) {
+            for ( j=0; j<Xdim; j++ ) {
+                k = i*Xdim + j;
+                ii = (double)i;
+                jj = (double)j;
+                regionCorner[k].set(jj*Xstride, ii*Ystride);
+            }
+        }
     }
     
     void drawGrid(){
@@ -161,23 +176,20 @@ public:
         ofLine(corner[2], corner[3]);
         ofLine(corner[3], corner[0]);
         
-        int j;
-        stride = Width/(double)Xdim;
-        for ( int i=0; i<Xdim; i++ ) {
-            j = (double)i +1;
-            ofLine(stride*j, 0.0, stride*j, Height);
+        Xstride = Width/(double)Xdim;
+        Ystride = Height/(double)Ydim;
+        
+        for ( i=0; i<Xdim; i++ ) {
+            jj = (double)i +1;
+            ofLine(Xstride*jj, 0.0, Xstride*jj, Height);
         }
         
-        stride = Height/(double)Ydim;
-        for ( int i=0; i<Ydim; i++ ) {
-            j = (double)i +1;
-            ofLine(0.0, stride*j, Width, stride*j);
+        for ( i=0; i<Ydim; i++ ) {
+            jj = (double)i +1;
+            ofLine(0.0, Ystride*jj, Width, Ystride*jj);
         }
     }
     
-    void checkRegions(){
-        
-    }
 };
 
 class BUTTON{
@@ -407,7 +419,8 @@ public:
     int kinectTiltAngle;
     ofTrueTypeFont verdana;
     
-    GRID grid;
+    GRID LocalGrid;
+    GRID RemoteGrid;
     
     // RIGHT HAND STUFF
     HAND rightHand;
@@ -463,27 +476,26 @@ public:
     static const int numMovies = 20;
     ofVideoPlayer videoPlayer[numMovies];
     ofImage videoImage[numMovies];
+    bool videoLoaded[numMovies];
     ofPoint videoLoc[numMovies];
+    
+    int LocToRemMap[numMovies] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 0};
     
     
     double currentTime = 0.0;
-    double BootTime = 0.5*60.0;                         // BootTime for the program
-    double PhaseOneTime   = 0.5*60.0;                   // phase one set for three minutes
-    double PhaseTwoTime   = 0.5*60.0 + PhaseOneTime;    // phase one set for three minutes
-    double PhaseThreeTime = 0.5*60.0 + PhaseTwoTime;    // phase one set for three minutes
-    bool b_BootTime = true;
-    bool b_PhaseOne = false;
-    bool b_PhaseTwo = false;
-    bool b_PhaseThree = false;
+    
+    double PhaseTime[5];
+    bool b_Phase[5];
+
+    
+    // remote send list
+    vector<int> movsToSend;
+    
+    
+    
     
     
     //BALL ball;
-    
-    ofVideoPlayer tempPlayer[5];
-    ofImage tempImage[5];
-    ofPoint tempLoc[5];
-    int numTestVids = 4;
-    
     
 };
 

@@ -29,20 +29,22 @@ void testApp::setup() {
     kinWidth = openNIDevice.getWidth();
     kinHeight = openNIDevice.getHeight();
     
-    ////////////////////
-    // ESTABLISH GRID //
-    ////////////////////
-    grid.setColor(ofColor::blueViolet);
-    grid.setCorners(kinWidth, kinHeight);
-    
+    ///////////////////////////////////
+    // ESTABLISH LOCAL & REMOTE GRID //
+    ///////////////////////////////////
+    LocalGrid.setColor(ofColor::blueViolet);
+    LocalGrid.setCorners(kinWidth, kinHeight);
+    RemoteGrid.setColor(ofColor::black);
+    RemoteGrid.setCorners(kinWidth, kinHeight);
+
     ////////////////////////////
     // set button coordinates //
     ////////////////////////////
-    buttWidth = kinWidth/grid.Xdim;
-    buttHeight = kinHeight/grid.Ydim;
-    for ( i=0; i<grid.Ydim; i++ ) { // height
-        for ( j=0; j<grid.Xdim; j++ ) { // width
-            k = i*grid.Xdim + j;
+    buttWidth = kinWidth/LocalGrid.Xdim;
+    buttHeight = kinHeight/LocalGrid.Ydim;
+    for ( i=0; i<LocalGrid.Ydim; i++ ) { // height
+        for ( j=0; j<LocalGrid.Xdim; j++ ) { // width
+            k = i*LocalGrid.Xdim + j;
             butt[k].setButtDimension(buttWidth, buttHeight);
             butt[k].setButtCorner(j*buttWidth, i*buttHeight);
             butt[k].label = k;
@@ -95,31 +97,40 @@ void testApp::setup() {
         videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
     }
     
+    PhaseTime[0] = 0.2*60.0; // boot time for the program nothing can be selected
+    PhaseTime[1] = 0.01*60.0 + PhaseTime[0]; // first phase of performance; nothing can be selected
+    PhaseTime[2] = 0.01*60.0 + PhaseTime[1]; // second phase of performance; videos can be played but not sent
+    PhaseTime[3] = 0.3*60.0 + PhaseTime[2]; // third phase of performance; videos that are stopped will be sent
+    PhaseTime[4] = 60.0*60.0 + PhaseTime[3]; // fourth phase of performance; videos will be arriving and playing
+    
+    b_Phase[0] = true;  // boot time
+    b_Phase[1] = false;
+    b_Phase[2] = false;
+    b_Phase[3] = false;
+    b_Phase[4] = false;
+    
+    movsToSend.push_back(-1);
+ 
+    for ( i=0; i<numMovies; i++ ) videoLoaded[i] = false;
+    
+    
+    
 }
 
 //--------------------------------------------------------------
 void testApp::update(){
     currentTime = ofGetElapsedTimeMillis()*0.001;
     
-    if ( currentTime > BootTime ) {
-        b_BootTime = false;
-        b_PhaseOne = true;
-        b_PhaseTwo = false;
-        b_PhaseThree = false;
-    }
-    if ( currentTime > PhaseOneTime ){
-        b_BootTime = false;
-        b_PhaseOne = false;
-        b_PhaseTwo = true;
-        b_PhaseThree = false;
-    }
-    if ( currentTime > PhaseTwoTime ) {
-        b_BootTime = false;
-        b_PhaseOne = false;
-        b_PhaseTwo = false;
-        b_PhaseThree = true;
+    for ( i=0; i<4; i++ ) {
+        b_Phase[i+1] = false;
+        if ( currentTime > PhaseTime[i] && currentTime < PhaseTime[i+1]) {
+            b_Phase[i+1] = true;
+            b_Phase[i] = false;
+        }
     }
     
+    
+    if ( !b_Phase[4] ) {
     openNIDevice.update();
     
     numUsers = openNIDevice.getNumTrackedUsers();
@@ -182,7 +193,7 @@ void testApp::update(){
     // CHECK BUTTONS FOR ACTIVITY //
     ////////////////////////////////
     // HAND CHECK ( is hand in butt )
-    for(int i=0; i<grid.Xdim*grid.Ydim; i++){
+    for(int i=0; i<LocalGrid.Xdim*LocalGrid.Ydim; i++){
 #if HANDCHECK
         // check left hand
         butt[i].setHandCheck(leftHand.clkPos);
@@ -215,6 +226,11 @@ void testApp::update(){
         if ( handDistance < handDistanceStopTolerance){
             StopCheck = true;
             stopTime = ofGetElapsedTimeMillis()*0.001;
+            
+        }
+        
+        if ( b_Phase[3] && movsToSend.back() != curr_video && curr_video != -1 ) {
+            movsToSend.push_back(curr_video);
         }
         
         for ( j=0; j<numButts; j++ )
@@ -242,18 +258,19 @@ void testApp::update(){
     imageWidth = rightHandPnt.x - leftHandPnt.x;
     imageHeight = rightHandPnt.x - leftHandPnt.x;
     
-    for ( i=0; i<numMovies; i++ ) {
-        if ( butt[i].isOn && !isVideoPlaying ) {
-            curr_video = i;
-            currVideoName = butt[i].videoName;
-            videoPlayer[i].loadMovie(butt[i].videoName);
-            videoPlayer[i].setLoopState(OF_LOOP_NONE);
-            videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
-            videoPlayer[i].play();
-            //ball.playTime = ofGetElapsedTimeMillis()*0.001;
-            isVideoPlaying = true;
+    if ( b_Phase[2] || b_Phase[3] ) {
+        for ( i=0; i<numMovies; i++ ) {
+            if ( butt[i].isOn && !isVideoPlaying ) {
+                curr_video = i;
+                currVideoName = butt[i].videoName;
+                videoPlayer[i].loadMovie(butt[i].videoName);
+                videoPlayer[i].setLoopState(OF_LOOP_NONE);
+                videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
+                videoPlayer[i].play();
+                //ball.playTime = ofGetElapsedTimeMillis()*0.001;
+                isVideoPlaying = true;
+            }
         }
-        
     }
     
     if ( curr_video != -1){
@@ -273,6 +290,8 @@ void testApp::update(){
             isVideoLoaded = false;
         }
     }
+        
+    }
     
     
     //    videoPlayer[i].update();
@@ -288,15 +307,9 @@ void testApp::update(){
     //        isVideoLoaded = false;
     //    }
     
-    
-    
-    
     //    old ball gesture
     //    ball.Hand = rightHandPnt;
     //    ball.update();
-    
-    
-    
     
 }
 
@@ -309,11 +322,7 @@ void testApp::draw(){
     //openNIDevice.drawDebug();
     //ofPopMatrix();
     
-    
-    
     ofSetColor(ofColor::white);
-    
-    
     
     /////////////////////
     // DRAW EVERYTHING //
@@ -322,23 +331,21 @@ void testApp::draw(){
     ofTranslate(0.0, windowHeight - kinHeight);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);  // see through the grid and buttons
     
-    grid.drawGrid();
+    LocalGrid.drawGrid();
     
-    for ( i=0; i<grid.Ydim; i++ ) {
-        for ( j=0; j<grid.Xdim; j++ ) {
-            k = i*grid.Xdim + j;
+
+    
+    for ( i=0; i<LocalGrid.Ydim; i++ ) {
+        for ( j=0; j<LocalGrid.Xdim; j++ ) {
+            k = i*LocalGrid.Xdim + j;
             butt[k].drawButton();
         }
     }
     
     //ofDisableBlendMode();
-    ofPopMatrix();
     
-    
-    ofPushMatrix();
-    ofTranslate(0.0, windowHeight - kinHeight);
     // CHECK FOR USERS
-    if ( numUsers > 0 ) {
+    if ( numUsers > 0 && !b_Phase[4] ) {
         ofxOpenNIUser & user = openNIDevice.getTrackedUser(0); // get a reference to this user
         
         // draw the mask texture for this user
@@ -358,7 +365,6 @@ void testApp::draw(){
         ofCircle(videoTriggerPnt.x, videoTriggerPnt.y, 10);
     }
     
-    
     //    if ( ball.released && isVideoPlaying ) {
     //        imageLocation.set(ball.Position.x, ball.Position.y);
     //        if ( ball.stop ) {
@@ -370,31 +376,51 @@ void testApp::draw(){
     //    ofSetColor(ofColor::yellow);
     //    ofCircle(ball.Position.x, ball.Position.y, 20);
     
-    
-    
     ofSetColor(ofColor::white);
-    if ( curr_video != -1 ) {
+    if ( curr_video != -1 && !b_Phase[4]) {
         videoImage[curr_video].resize(imageWidth, imageHeight);
         videoLoc[curr_video] = videoLoc[curr_video];
         videoImage[curr_video].draw(videoLoc[curr_video]);
     }
     
+    // move remote grid over a little
+    ofPushMatrix();
+    ofTranslate(0.0, -kinHeight);
+    RemoteGrid.drawGrid();
     
-    
-    
-    
-    
+    if ( b_Phase[4] ) {
+        
+         for ( i=1; i<movsToSend.size(); i++ ) {
+         j = movsToSend.at(i);
+         if ( !videoLoaded[j] ) {
+         videoPlayer[j].loadMovie(butt[j].videoName);
+         videoPlayer[j].setLoopState(OF_LOOP_NONE);
+         videoImage[j].allocate(videoPlayer[j].getWidth(),
+         videoPlayer[j].getHeight(),
+         OF_IMAGE_COLOR);
+         videoPlayer[j].play();
+         videoLoaded[j] = true;
+         }
+             
+             videoPlayer[j].update();
+             videoImage[j].setFromPixels(videoPlayer[j].getPixels(),
+                                                  videoPlayer[j].getWidth(),
+                                                  videoPlayer[j].getHeight(),
+                                                  OF_IMAGE_COLOR);
+              videoLoc[j] = RemoteGrid.regionCorner[LocToRemMap[j]];
+              
+              ofSetColor(ofColor::white);
+              videoImage[j].resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
+              videoImage[j].draw(videoLoc[j]);
+              
+         }
+        
+    }
     
     
     ofPopMatrix();
     
-    
-    //    for ( i=0; i<numTestVids; i++ ) {
-    //        tempPlayer[i].update();
-    //        tempImage[i].setFromPixels(tempPlayer[i].getPixels(), tempPlayer[i].getWidth(),
-    //                                   tempPlayer[i].getHeight(), OF_IMAGE_COLOR);
-    //        tempImage[i].draw(tempLoc[i]);
-    //    }
+    ofPopMatrix();
     
     /////////////////////////
     // FEEDBACK STATEMENTS //
@@ -484,21 +510,17 @@ void testApp::draw(){
     verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
     statementCounter++;
     
-    MSG = "BootTime: " + ofToString(b_BootTime);
-    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
-    statementCounter++;
+    for ( i=0; i<5; i++ ) {
+        MSG = "b_Phase["+ofToString(i)+"]: " + ofToString(b_Phase[i]);
+        verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+        statementCounter++;
+    }
     
-    MSG = "PhaseOne: " + ofToString(b_PhaseOne);
-    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
-    statementCounter++;
-    
-    MSG = "PhaseTwo: " + ofToString(b_PhaseTwo);
-    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
-    statementCounter++;
-    
-    MSG = "PhaseThree: " + ofToString(b_PhaseThree);
-    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
-    statementCounter++;
+    for ( i=0; i<movsToSend.size(); i++ ) {
+        MSG = "movsToSend: " + ofToString(movsToSend.at(i));
+        verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+        statementCounter++;
+    }
     
 }
 
