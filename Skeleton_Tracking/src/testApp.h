@@ -10,6 +10,125 @@
 
 #define HANDCHECK 0
 
+class BALL{
+public:
+    int i, j, k;
+    bool b_Toss = false;
+    bool throwIt_1 = false;         // has the ball achieved a velocity worth throwing?
+    bool throwIt_2 = false;         // has the ball achieved a velocity worth throwing and then decreased?
+    bool released = false;          // has ball been released
+    bool caught = true;             // has bell been caught
+    bool stop = false;              // has the overhead stop command be given
+    double VelMag[NUMVEL+1];
+    double TossVelTol=0.4;
+    double maxTossVel = 0.0;
+    double dT;
+    double screen_height;
+    double screen_width;
+    double tossWaitTime = 0.5;
+    double releaseTime = 0.0;
+    double catchTime = 0.0;
+    double currentTime = 0.0;
+    double playTime = 0.0;
+    double somethingIsNotRight=0.0;
+    ofPoint VEL[NUMVEL+1];
+    ofPoint Pos[NUMPOS+1];
+    ofPoint Position;
+    ofPoint Velocity;
+    ofPoint travelVelocity;
+    ofPoint Hand;
+    
+    void update(){
+        
+        if ( b_Toss ) {
+            
+            currentTime = ofGetElapsedTimeMillis()*0.001;       // get current time from system
+            dT = ofGetFrameRate();                              // get current timestep
+            /* Bump oldest position data and make room
+             for most recent. */
+            for (i=0; i<NUMPOS; i++)
+                Pos[i] = Pos[i+1];
+            
+            // Store most recent position data.
+            Pos[NUMPOS] = Hand;
+            
+            /* Bump oldest velocity data and make room for most recent */
+            /* Bump oldest valocity magnitude data and make room for most recent */
+            for ( i=0; i<NUMVEL; i++ ) {
+                VEL[i] = VEL[i+1];
+                VelMag[i] = VelMag[i+1];
+            }
+            
+            // Store most recent velocity.
+            VEL[NUMVEL] = (Pos[NUMPOS] - Pos[NUMPOS-1])/dT;
+            // Store most recent Velocity Magnitude.
+            VelMag[NUMVEL] = sqrt(VEL[i].x*VEL[i].x + VEL[i].y*VEL[i].y + VEL[i].z*VEL[i].z);
+            
+            // If the ball has not been released the following happens.
+            /* Test if any of the velocities have exceeded the TossVelocityTolerance -> make throwit_1 true
+             and make throwIt_2 false. */
+            /* Check if the most recent Velocity Magnitude has dropped below the TossVelocityTolerance */
+            if ( !released ) {
+                
+                maxTossVel = 0.0;
+                throwIt_1 = throwIt_2 = false;
+                
+                for ( i=0; i<NUMVEL; i++ ) {
+                    if ( VelMag[i] > TossVelTol ) {
+                        throwIt_1 = true;
+                        throwIt_2 = false;
+                    }
+                    if ( VelMag[i]>maxTossVel ) {
+                        maxTossVel = VelMag[i];
+                        travelVelocity.set(VEL[i].x, VEL[i].y);
+                    }
+                }
+                
+                if ( VelMag[NUMVEL] < TossVelTol )
+                    throwIt_2 = true;
+                
+                if ( throwIt_1 && throwIt_2 && (currentTime - catchTime > tossWaitTime) ) {
+                    released = true;
+                    caught = false;
+                    releaseTime = currentTime;
+                }
+                
+            }
+            
+            // If the ball has been released
+            /* Check if the Position of the ball is outside the screen. */
+            else {
+                throwIt_1 = throwIt_2 = false;
+                if ( Position.x > screen_width || Position.x < 0.0
+                    || Position.y > screen_height || Position.y < 0.0 ) {
+                    released = false;
+                    stop = true;
+                    caught = false;
+                }
+                else {
+                    stop = false;
+                }
+            }
+            
+            // If the ball has been released, then let it travel.
+            if ( released ) {
+                Position.set(Position.x + travelVelocity.x*dT*0.5,
+                             Position.y + travelVelocity.y*dT*0.5,
+                             Position.z + travelVelocity.z*dT*0.5);
+            }
+            // If the ball has not been released, set the position at the hand and record the time.
+            else {
+                Position.set(Hand.x, Hand.y);
+                if ( ! caught ) {
+                    catchTime = currentTime;
+                    caught = true;
+                }
+            }
+        }
+    }
+    
+};
+
 class GRID{
 public:
     int Xdim = 5;
@@ -41,7 +160,7 @@ public:
         ofLine(corner[1], corner[2]);
         ofLine(corner[2], corner[3]);
         ofLine(corner[3], corner[0]);
-  
+        
         int j;
         stride = Width/(double)Xdim;
         for ( int i=0; i<Xdim; i++ ) {
@@ -99,6 +218,11 @@ public:
         offSetDist = 2.0*offSetDist;
     }
     void drawButton(){
+        if ( isOn ) {
+            setButtColor(ofColor::turquoise);
+        } else {
+            setButtColor(ofColor::magenta);
+        }
         ofEnableAlphaBlending();
         ofSetColor(color,127);
         ofRect(topLeft.x, topLeft.y, width, height);
@@ -110,14 +234,12 @@ public:
             if ( clkCounter != buttClkInt ){
                 isOn = true;
                 buttClkInt = clkCounter;
-                setButtColor(ofColor::turquoise);
             }
         }
         else {
             if ( clkCounter != buttClkInt ) {
                 isOn = false;
                 buttClkInt = clkCounter;
-                setButtColor(ofColor::magenta);
             }
         }
     }
@@ -323,18 +445,44 @@ public:
     
     ofPoint videoTriggerPnt;
     
-    
-    // video player handles
-    ofVideoPlayer videoPlayer;
-    ofImage videoImage;
-    ofPoint imageLocation;
+    //////////////////////////
+    // video player handles //
+    //////////////////////////
     double imageWidth, imageHeight;
+    double handDistance = 1000.0;
+    double stopTime = 0.0;
+    double playTimeOffset = 1.0;
+    double handDistanceStopTolerance = 20.0;
     string videoName;
+    string currVideoName;
     int curr_video = -1;
     bool isVideoPlaying = false;
     bool isVideoLoaded = false;
+    bool StopCheck = false;
     int testButton = 14;
-    int numMovies = 20;
+    static const int numMovies = 20;
+    ofVideoPlayer videoPlayer[numMovies];
+    ofImage videoImage[numMovies];
+    ofPoint videoLoc[numMovies];
+    
+    
+    double currentTime = 0.0;
+    double BootTime = 0.5*60.0;                         // BootTime for the program
+    double PhaseOneTime   = 0.5*60.0;                   // phase one set for three minutes
+    double PhaseTwoTime   = 0.5*60.0 + PhaseOneTime;    // phase one set for three minutes
+    double PhaseThreeTime = 0.5*60.0 + PhaseTwoTime;    // phase one set for three minutes
+    bool b_BootTime = true;
+    bool b_PhaseOne = false;
+    bool b_PhaseTwo = false;
+    bool b_PhaseThree = false;
+    
+    
+    //BALL ball;
+    
+    ofVideoPlayer tempPlayer[5];
+    ofImage tempImage[5];
+    ofPoint tempLoc[5];
+    int numTestVids = 4;
     
     
 };

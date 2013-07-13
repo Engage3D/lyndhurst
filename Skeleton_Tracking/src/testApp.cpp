@@ -1,5 +1,4 @@
 #include "testApp.h"
-
 //--------------------------------------------------------------
 void testApp::setup() {
     
@@ -30,7 +29,25 @@ void testApp::setup() {
     kinWidth = openNIDevice.getWidth();
     kinHeight = openNIDevice.getHeight();
     
+    ////////////////////
+    // ESTABLISH GRID //
+    ////////////////////
+    grid.setColor(ofColor::blueViolet);
+    grid.setCorners(kinWidth, kinHeight);
     
+    ////////////////////////////
+    // set button coordinates //
+    ////////////////////////////
+    buttWidth = kinWidth/grid.Xdim;
+    buttHeight = kinHeight/grid.Ydim;
+    for ( i=0; i<grid.Ydim; i++ ) { // height
+        for ( j=0; j<grid.Xdim; j++ ) { // width
+            k = i*grid.Xdim + j;
+            butt[k].setButtDimension(buttWidth, buttHeight);
+            butt[k].setButtCorner(j*buttWidth, i*buttHeight);
+            butt[k].label = k;
+        }
+    }
     
     // you can alternatively create a 'base' user class
     //    ofxOpenNIUser user;
@@ -45,7 +62,11 @@ void testApp::setup() {
     origin.set(0.0,0.0);
     leftHand.handColor = ofColor::blue;
     rightHand.handColor = ofColor::yellow;
-    butt[testButton].videoName = "movies/fingers.mov";
+    
+    //ball.b_Toss = true;
+    //ball.screen_height = windowHeight;
+    //ball.screen_width = windowWidth;
+    //ball.Position.set(origin);
     
     butt[0].videoName  = "movies/01.mov";
     butt[1].videoName  = "movies/02.mov";
@@ -68,11 +89,37 @@ void testApp::setup() {
     butt[18].videoName = "movies/19.mov";
     butt[19].videoName = "movies/20.mov";
     
+    ofSetColor(ofColor::white);
+    for ( i=0; i<numMovies; i++ ) {
+        videoPlayer[i].loadMovie(butt[i].videoName);
+        videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
+    }
     
 }
 
 //--------------------------------------------------------------
 void testApp::update(){
+    currentTime = ofGetElapsedTimeMillis()*0.001;
+    
+    if ( currentTime > BootTime ) {
+        b_BootTime = false;
+        b_PhaseOne = true;
+        b_PhaseTwo = false;
+        b_PhaseThree = false;
+    }
+    if ( currentTime > PhaseOneTime ){
+        b_BootTime = false;
+        b_PhaseOne = false;
+        b_PhaseTwo = true;
+        b_PhaseThree = false;
+    }
+    if ( currentTime > PhaseTwoTime ) {
+        b_BootTime = false;
+        b_PhaseOne = false;
+        b_PhaseTwo = false;
+        b_PhaseThree = true;
+    }
+    
     openNIDevice.update();
     
     numUsers = openNIDevice.getNumTrackedUsers();
@@ -129,27 +176,7 @@ void testApp::update(){
     
     
     
-    ////////////////////
-    // ESTABLISH GRID //
-    ////////////////////
-    grid.setColor(ofColor::blueViolet);
-    grid.setCorners(kinWidth, kinHeight);
     
-    
-    
-    ////////////////////////////
-    // set button coordinates //
-    ////////////////////////////
-    buttWidth = kinWidth/grid.Xdim;
-    buttHeight = kinHeight/grid.Ydim;
-    for ( i=0; i<grid.Ydim; i++ ) { // height
-        for ( j=0; j<grid.Xdim; j++ ) { // width
-            k = i*grid.Xdim + j;
-            butt[k].setButtDimension(buttWidth, buttHeight);
-            butt[k].setButtCorner(j*buttWidth, i*buttHeight);
-            butt[k].label = k;
-        }
-    }
     
     ////////////////////////////////
     // CHECK BUTTONS FOR ACTIVITY //
@@ -169,78 +196,124 @@ void testApp::update(){
         // check for overhead
         butt[i].setHandCheck(videoTriggerPnt);
         overheadChk = overheadCheck(leftHandPnt, rightHandPnt, headPnt, neckPnt);
-        if ( butt[i].handCheck ) {
-            //if ( curr_video == -1 && !isVideoLoaded ) {
-            //    videoPlayer.loadMovie(butt[testButton].videoName);
-            //    isVideoLoaded = true;
-            //}
+        if ( butt[i].handCheck && curr_video == -1 ) {
+            // turn button on
             if ( overheadChk && !butt[i].isOn ) {
                 butt[i].pushButton(overheadClickCounter);
                 overheadClickCounter++;
             }
+            // turn button off
             if ( !overheadChk && butt[i].isOn ) {
                 butt[i].pushButton(overheadClickCounter);
                 overheadClickCounter++;
             }
+            
+        }
+        
+        // check for overhead stop
+        handDistance = sqrt((leftHandPnt.x - rightHandPnt.x)*(leftHandPnt.x - rightHandPnt.x) + (leftHandPnt.y - rightHandPnt.y)*(leftHandPnt.y - rightHandPnt.y));
+        if ( handDistance < handDistanceStopTolerance){
+            StopCheck = true;
+            stopTime = ofGetElapsedTimeMillis()*0.001;
+        }
+        
+        for ( j=0; j<numButts; j++ )
+            if (StopCheck)
+                butt[i].isOn = false;
+        
+        if ( currentTime - stopTime > playTimeOffset )
+            StopCheck = false;
+        
+        // stop everything
+        if ( overheadChk && StopCheck ) {
+            videoPlayer[i].stop();
+            videoPlayer[i].close();
+            videoImage[i].clear();
+            isVideoPlaying = false;
+            curr_video = -1;
+            //ball.Position.set(rightHandPnt);
+            //ball.released = false;
         }
     }
-    
     
     ///////////////////////////
     // HANDLE VIDEO PLAYBACK //
     ///////////////////////////
-    //if ( butt[testButton].isOn && !isVideoPlaying ) {
-    //    curr_video = 0;
-    //    videoPlayer.loadMovie(butt[testButton].videoName);
-    //    videoPlayer.setLoopState(OF_LOOP_NONE);
-    //    videoImage.allocate(videoPlayer.getWidth(), videoPlayer.getHeight(), OF_IMAGE_COLOR);
-    //    videoPlayer.play();
-    //    isVideoPlaying = true;
-    //}
+    imageWidth = rightHandPnt.x - leftHandPnt.x;
+    imageHeight = rightHandPnt.x - leftHandPnt.x;
     
     for ( i=0; i<numMovies; i++ ) {
         if ( butt[i].isOn && !isVideoPlaying ) {
-            curr_video = 0;
-            videoPlayer.loadMovie(butt[i].videoName);
-            videoPlayer.setLoopState(OF_LOOP_NONE);
-            videoImage.allocate(videoPlayer.getWidth(), videoPlayer.getHeight(), OF_IMAGE_COLOR);
-            videoPlayer.play();
+            curr_video = i;
+            currVideoName = butt[i].videoName;
+            videoPlayer[i].loadMovie(butt[i].videoName);
+            videoPlayer[i].setLoopState(OF_LOOP_NONE);
+            videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
+            videoPlayer[i].play();
+            //ball.playTime = ofGetElapsedTimeMillis()*0.001;
             isVideoPlaying = true;
         }
         
     }
     
-    videoPlayer.update();
-    if ( curr_video > -1 ) {
-        videoImage.setFromPixels(videoPlayer.getPixels(), videoPlayer.getWidth(), videoPlayer.getHeight(), OF_IMAGE_COLOR);
+    if ( curr_video != -1){
+        videoPlayer[curr_video].update();
+        videoImage[curr_video].setFromPixels(videoPlayer[curr_video].getPixels(),
+                                             videoPlayer[curr_video].getWidth(),
+                                             videoPlayer[curr_video].getHeight(),
+                                             OF_IMAGE_COLOR);
+        
+        videoLoc[curr_video].set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+        
+        if ( videoPlayer[curr_video].getIsMovieDone() ) {
+            videoPlayer [curr_video].close();
+            videoImage  [curr_video].clear();
+            curr_video = -1;
+            isVideoPlaying = false;
+            isVideoLoaded = false;
+        }
     }
     
-    if ( videoPlayer.getIsMovieDone() ) {
-        videoPlayer.close();
-        videoImage.clear();
-        curr_video = -1;
-        isVideoPlaying = false;
-        isVideoLoaded = false;
-    }
+    
+    //    videoPlayer[i].update();
+    //    if ( curr_video > -1 ) {
+    //        videoImage[i].setFromPixels(videoPlayer[i].getPixels(), videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
+    //    }
+    
+    //    if ( videoPlayer[i].getIsMovieDone() ) {
+    //        videoPlayer[i].close();
+    //        videoImage[i].clear();
+    //        curr_video = -1;
+    //        isVideoPlaying = false;
+    //        isVideoLoaded = false;
+    //    }
+    
+    
+    
+    
+    //    old ball gesture
+    //    ball.Hand = rightHandPnt;
+    //    ball.update();
+    
+    
+    
     
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-	ofSetColor(ofColor::gray);
+    ofSetColor(ofColor::gray);
     
-    ofPushMatrix();
-    //draw debug (ie., image, depth, skeleton)
-    openNIDevice.drawDebug();
-    ofPopMatrix();
+    //ofPushMatrix();
+    ////draw debug (ie., image, depth, skeleton)
+    //openNIDevice.drawDebug();
+    //ofPopMatrix();
     
     
-    imageWidth = rightHandPnt.x - leftHandPnt.x;
-    imageHeight = rightHandPnt.x - leftHandPnt.x;
-    imageLocation.set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
     
     ofSetColor(ofColor::white);
-    videoImage.resize(imageWidth, imageHeight);
+    
+    
     
     /////////////////////
     // DRAW EVERYTHING //
@@ -276,7 +349,7 @@ void testApp::draw(){
         ofSetColor(ofColor::red);
         ofCircle(torsoPnt.x, torsoPnt.y, 10);
         
-        rightHand.drawHand();
+        //rightHand.drawHand();
         leftHand.drawHand();
         rightHand.drawClk();
         leftHand.drawClk();
@@ -285,10 +358,43 @@ void testApp::draw(){
         ofCircle(videoTriggerPnt.x, videoTriggerPnt.y, 10);
     }
     
+    
+    //    if ( ball.released && isVideoPlaying ) {
+    //        imageLocation.set(ball.Position.x, ball.Position.y);
+    //        if ( ball.stop ) {
+    //            videoPlayer.stop();
+    //            videoPlayer.close();
+    //            videoImage.clear();
+    //        }
+    //    }
+    //    ofSetColor(ofColor::yellow);
+    //    ofCircle(ball.Position.x, ball.Position.y, 20);
+    
+    
+    
     ofSetColor(ofColor::white);
-    videoImage.draw(imageLocation);
+    if ( curr_video != -1 ) {
+        videoImage[curr_video].resize(imageWidth, imageHeight);
+        videoLoc[curr_video] = videoLoc[curr_video];
+        videoImage[curr_video].draw(videoLoc[curr_video]);
+    }
+    
+    
+    
+    
+    
+    
+    
     
     ofPopMatrix();
+    
+    
+    //    for ( i=0; i<numTestVids; i++ ) {
+    //        tempPlayer[i].update();
+    //        tempImage[i].setFromPixels(tempPlayer[i].getPixels(), tempPlayer[i].getWidth(),
+    //                                   tempPlayer[i].getHeight(), OF_IMAGE_COLOR);
+    //        tempImage[i].draw(tempLoc[i]);
+    //    }
     
     /////////////////////////
     // FEEDBACK STATEMENTS //
@@ -322,7 +428,7 @@ void testApp::draw(){
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
     statementCounter++;
     
-    MSG = "RH velocity = " + ofToString(rightHand.Vel[0].z);
+    MSG = "RH velocity = " + ofToString(rightHand.Vel[0].x);
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
     statementCounter++;
     
@@ -342,10 +448,6 @@ void testApp::draw(){
     verdana.drawString(MSG,dbplx,dbply + dbpo*statementCounter);
     statementCounter++;
     
-    MSG = "button 5 ClkInt = " + ofToString(butt[5].buttClkInt);
-    verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
-    statementCounter++;
-    
     MSG = "overheadClickCounter = " + ofToString(overheadClickCounter);
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
     statementCounter++;
@@ -360,6 +462,42 @@ void testApp::draw(){
     
     MSG = "kinect tilt angle: " + ofToString(kinectTiltAngle);
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "handDistance: " + ofToString(handDistance);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "stopTimeoffset: " + ofToString(ofGetSystemTimeMicros() - stopTime);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "stopCheck " + ofToString(StopCheck);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "isVideoPlaying: " + ofToString(isVideoPlaying);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "currentVideoPlaying: " + ofToString(curr_video);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "BootTime: " + ofToString(b_BootTime);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "PhaseOne: " + ofToString(b_PhaseOne);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "PhaseTwo: " + ofToString(b_PhaseTwo);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "PhaseThree: " + ofToString(b_PhaseThree);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
     statementCounter++;
     
 }
