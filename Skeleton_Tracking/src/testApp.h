@@ -233,7 +233,7 @@ public:
         if ( isOn ) {
             setButtColor(ofColor::turquoise);
         } else {
-            setButtColor(ofColor::magenta);
+            setButtColor(ofColor::white);
         }
         ofEnableAlphaBlending();
         ofSetColor(color,127);
@@ -367,6 +367,42 @@ public:
     }
 };
 
+class MOVIE {
+public:
+    string name;
+    ofVideoPlayer vidPlayer;
+    ofImage vidImage;
+    ofPoint vidLoc;
+    bool loaded = false;
+    bool playing = false;
+    
+    void load(){
+        vidPlayer.loadMovie(name);
+        vidPlayer.setLoopState(OF_LOOP_NONE);
+        vidImage.allocate(vidPlayer.getWidth(), vidPlayer.getHeight(), OF_IMAGE_COLOR);
+        loaded = true;
+    }
+    
+    void play(){
+        if ( loaded ) {
+            vidPlayer.play();
+            playing = true;
+        }
+    }
+    
+    void stop() {
+        vidPlayer.stop();
+        vidPlayer.close();
+        vidImage.clear();
+        loaded = false;
+        playing = false;
+    }
+    
+    void update() {
+        vidPlayer.update();
+    }
+};
+
 
 class testApp : public ofBaseApp{
     
@@ -474,10 +510,15 @@ public:
     bool StopCheck = false;
     int testButton = 14;
     static const int numMovies = 20;
+    ofVideoPlayer localPlayer;
+    ofImage localImage;
+    ofPoint localLoc;
     ofVideoPlayer videoPlayer[numMovies];
     ofImage videoImage[numMovies];
     bool videoLoaded[numMovies];
     ofPoint videoLoc[numMovies];
+    double transferTime = 2.0;
+    double playTime[numMovies];
     
     int LocToRemMap[numMovies] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 0};
     
@@ -485,12 +526,17 @@ public:
     double currentTime = 0.0;
     
     double PhaseTime[5];
+    double PhaseDuration[5];
     bool b_Phase[5];
+    int Phase = 0;
 
     
     // remote send list
     vector<int> movsToSend;
     
+    // phase colors
+    ofColor phaseColors[5] = {ofColor::black, ofColor::yellow, ofColor::green, ofColor::blue, ofColor::crimson};
+    ofPoint Tri[3];
     
     
     

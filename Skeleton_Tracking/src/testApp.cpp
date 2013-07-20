@@ -61,6 +61,10 @@ void testApp::setup() {
     
     verdana.loadFont(ofToDataPath("verdana.ttf"), 18);
     
+    Tri[0].set(0.0, 20.0);
+    Tri[1].set(20.0, 0.0);
+    Tri[2].set(0.0, 0.0);
+    
     origin.set(0.0,0.0);
     leftHand.handColor = ofColor::blue;
     rightHand.handColor = ofColor::yellow;
@@ -97,13 +101,17 @@ void testApp::setup() {
         videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
     }
     
-    PhaseTime[0] = 0.2*60.0; // boot time for the program nothing can be selected
-    PhaseTime[1] = 0.01*60.0 + PhaseTime[0]; // first phase of performance; nothing can be selected
-    PhaseTime[2] = 0.01*60.0 + PhaseTime[1]; // second phase of performance; videos can be played but not sent
-    PhaseTime[3] = 0.3*60.0 + PhaseTime[2]; // third phase of performance; videos that are stopped will be sent
-    PhaseTime[4] = 60.0*60.0 + PhaseTime[3]; // fourth phase of performance; videos will be arriving and playing
+    PhaseDuration[0] = 0.40*60.0; // boot time for the program nothing can be selected
+    PhaseDuration[1] = 0.01*60.0; // first phase of performance; nothing can be selected
+    PhaseDuration[2] = 0.01*60.0; // second phase of performance; videos can be played but not sent
+    PhaseDuration[3] = 3.00*60.0;  // third phase of performance; videos that are stopped will be sent
+    PhaseDuration[4] = 60.0*60.0; // fourth phase of performance; videos will be arriving and playing
     
-    b_Phase[0] = true;  // boot time
+    PhaseTime[0] = PhaseDuration[0];
+    for ( i=1; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
+
+    
+    b_Phase[0] = true;  
     b_Phase[1] = false;
     b_Phase[2] = false;
     b_Phase[3] = false;
@@ -112,6 +120,7 @@ void testApp::setup() {
     movsToSend.push_back(-1);
  
     for ( i=0; i<numMovies; i++ ) videoLoaded[i] = false;
+    
     
     
     
@@ -126,171 +135,177 @@ void testApp::update(){
         if ( currentTime > PhaseTime[i] && currentTime < PhaseTime[i+1]) {
             b_Phase[i+1] = true;
             b_Phase[i] = false;
+            Phase = i+1;
         }
     }
     
     
     if ( !b_Phase[4] ) {
-    openNIDevice.update();
-    
-    numUsers = openNIDevice.getNumTrackedUsers();
-    if ( numUsers > 0 ) {
-        ofxOpenNIUser & user = openNIDevice.getTrackedUser(0);
-        // pull head joint coordinates
-        headJnt = user.getJoint(JOINT_HEAD);
-        headPnt = headJnt.getProjectivePosition();
+        openNIDevice.update();
         
-        // pull neck joint coordinates
-        neckJnt = user.getJoint(JOINT_NECK);
-        neckPnt = neckJnt.getProjectivePosition();
+        numUsers = openNIDevice.getNumTrackedUsers();
+        if ( numUsers > 0 ) {
+            ofxOpenNIUser & user = openNIDevice.getTrackedUser(0);
+            // pull head joint coordinates
+            headJnt = user.getJoint(JOINT_HEAD);
+            headPnt = headJnt.getProjectivePosition();
+            
+            // pull neck joint coordinates
+            neckJnt = user.getJoint(JOINT_NECK);
+            neckPnt = neckJnt.getProjectivePosition();
+            
+            // pull torso joint coordinates
+            torsoJnt = user.getJoint(JOINT_TORSO);
+            torsoPnt = torsoJnt.getProjectivePosition();
+            
+            // pull left Knee joint coordinates
+            leftKneeJnt = user.getJoint(JOINT_LEFT_KNEE);
+            leftKneePnt = leftKneeJnt.getProjectivePosition();
+            
+            //pull right knee joint coordinates
+            rightKneeJnt = user.getJoint(JOINT_RIGHT_KNEE);
+            rightKneePnt = rightKneeJnt.getProjectivePosition();
+            
+            // pull left hip joint coordinates
+            leftHipJnt = user.getJoint(JOINT_LEFT_HIP);
+            leftHipPnt = leftHipJnt.getProjectivePosition();
+            
+            // pull right hip coordinates
+            rightHipJnt = user.getJoint(JOINT_RIGHT_HIP);
+            rightHipPnt = rightHipJnt.getProjectivePosition();
+            
+            
+            // pull right hand joint coordinates
+            rightHandJnt = user.getJoint(JOINT_RIGHT_HAND);
+            rightHandPnt = rightHandJnt.getProjectivePosition();
+            rhWrldPos = rightHandJnt.getWorldPosition();
+            rightHand.Jnt = rightHandJnt;
+            rightHand.referencePnt = origin;
+            rightHand.update();
+            
+            // pull left hand joint coordinates
+            leftHandJnt = user.getJoint(JOINT_LEFT_HAND);
+            leftHandPnt = leftHandJnt.getProjectivePosition();
+            lhWrldPos = leftHandJnt.getWorldPosition();
+            leftHand.Jnt = leftHandJnt;
+            leftHand.referencePnt = origin;
+            leftHand.update();
+            
+            videoTriggerPnt = 0.25*(leftKneePnt + rightKneePnt + leftHipPnt + rightHipPnt);
+            
+        }
         
-        // pull torso joint coordinates
-        torsoJnt = user.getJoint(JOINT_TORSO);
-        torsoPnt = torsoJnt.getProjectivePosition();
-        
-        // pull left Knee joint coordinates
-        leftKneeJnt = user.getJoint(JOINT_LEFT_KNEE);
-        leftKneePnt = leftKneeJnt.getProjectivePosition();
-        
-        //pull right knee joint coordinates
-        rightKneeJnt = user.getJoint(JOINT_RIGHT_KNEE);
-        rightKneePnt = rightKneeJnt.getProjectivePosition();
-        
-        // pull left hip joint coordinates
-        leftHipJnt = user.getJoint(JOINT_LEFT_HIP);
-        leftHipPnt = leftHipJnt.getProjectivePosition();
-        
-        // pull right hip coordinates
-        rightHipJnt = user.getJoint(JOINT_RIGHT_HIP);
-        rightHipPnt = rightHipJnt.getProjectivePosition();
-        
-        
-        // pull right hand joint coordinates
-        rightHandJnt = user.getJoint(JOINT_RIGHT_HAND);
-        rightHandPnt = rightHandJnt.getProjectivePosition();
-        rhWrldPos = rightHandJnt.getWorldPosition();
-        rightHand.Jnt = rightHandJnt;
-        rightHand.referencePnt = origin;
-        rightHand.update();
-        
-        // pull left hand joint coordinates
-        leftHandJnt = user.getJoint(JOINT_LEFT_HAND);
-        leftHandPnt = leftHandJnt.getProjectivePosition();
-        lhWrldPos = leftHandJnt.getWorldPosition();
-        leftHand.Jnt = leftHandJnt;
-        leftHand.referencePnt = origin;
-        leftHand.update();
-        
-        videoTriggerPnt = 0.25*(leftKneePnt + rightKneePnt + leftHipPnt + rightHipPnt);
-        
-    }
-    
-    
-    
-    
-    
-    ////////////////////////////////
-    // CHECK BUTTONS FOR ACTIVITY //
-    ////////////////////////////////
-    // HAND CHECK ( is hand in butt )
-    for(int i=0; i<LocalGrid.Xdim*LocalGrid.Ydim; i++){
+        ////////////////////////////////
+        // CHECK BUTTONS FOR ACTIVITY //
+        ////////////////////////////////
+        // HAND CHECK ( is hand in butt )
+        for( i=0; i<LocalGrid.Xdim*LocalGrid.Ydim; i++){
 #if HANDCHECK
-        // check left hand
-        butt[i].setHandCheck(leftHand.clkPos);
-        if(butt[i].handCheck)
-            butt[i].pushButton(leftHand.clkCounter);
-        // check right hand
-        butt[i].setHandCheck(rightHand.clkPos);
-        if(butt[i].handCheck)
-            butt[i].pushButton(rightHand.clkCounter);
+            // check left hand
+            butt[i].setHandCheck(leftHand.clkPos);
+            if(butt[i].handCheck)
+                butt[i].pushButton(leftHand.clkCounter);
+            // check right hand
+            butt[i].setHandCheck(rightHand.clkPos);
+            if(butt[i].handCheck)
+                butt[i].pushButton(rightHand.clkCounter);
 #endif 
-        // check for overhead
-        butt[i].setHandCheck(videoTriggerPnt);
-        overheadChk = overheadCheck(leftHandPnt, rightHandPnt, headPnt, neckPnt);
-        if ( butt[i].handCheck && curr_video == -1 ) {
-            // turn button on
-            if ( overheadChk && !butt[i].isOn ) {
-                butt[i].pushButton(overheadClickCounter);
-                overheadClickCounter++;
-            }
-            // turn button off
-            if ( !overheadChk && butt[i].isOn ) {
-                butt[i].pushButton(overheadClickCounter);
-                overheadClickCounter++;
+            // check for overhead
+            butt[i].setHandCheck(videoTriggerPnt);
+            overheadChk = overheadCheck(leftHandPnt, rightHandPnt, headPnt, neckPnt);
+            if ( butt[i].handCheck && curr_video == -1 ) {
+                // turn button on
+                if ( overheadChk && !butt[i].isOn ) {
+                    butt[i].pushButton(overheadClickCounter);
+                    overheadClickCounter++;
+                }
+                // turn button off
+                if ( !overheadChk && butt[i].isOn ) {
+                    butt[i].pushButton(overheadClickCounter);
+                    overheadClickCounter++;
+                }
             }
             
-        }
-        
-        // check for overhead stop
-        handDistance = sqrt((leftHandPnt.x - rightHandPnt.x)*(leftHandPnt.x - rightHandPnt.x) + (leftHandPnt.y - rightHandPnt.y)*(leftHandPnt.y - rightHandPnt.y));
-        if ( handDistance < handDistanceStopTolerance){
-            StopCheck = true;
-            stopTime = ofGetElapsedTimeMillis()*0.001;
+            // check for overhead stop
+            handDistance = sqrt((leftHandPnt.x - rightHandPnt.x)*(leftHandPnt.x - rightHandPnt.x) + (leftHandPnt.y - rightHandPnt.y)*(leftHandPnt.y - rightHandPnt.y));
+            if ( handDistance < handDistanceStopTolerance){
+                StopCheck = true;
+                stopTime = ofGetElapsedTimeMillis()*0.001;
+            }
             
-        }
-        
-        if ( b_Phase[3] && movsToSend.back() != curr_video && curr_video != -1 ) {
-            movsToSend.push_back(curr_video);
-        }
-        
-        for ( j=0; j<numButts; j++ )
-            if (StopCheck)
-                butt[i].isOn = false;
-        
-        if ( currentTime - stopTime > playTimeOffset )
-            StopCheck = false;
-        
-        // stop everything
-        if ( overheadChk && StopCheck ) {
-            videoPlayer[i].stop();
-            videoPlayer[i].close();
-            videoImage[i].clear();
-            isVideoPlaying = false;
-            curr_video = -1;
-            //ball.Position.set(rightHandPnt);
-            //ball.released = false;
-        }
-    }
-    
-    ///////////////////////////
-    // HANDLE VIDEO PLAYBACK //
-    ///////////////////////////
-    imageWidth = rightHandPnt.x - leftHandPnt.x;
-    imageHeight = rightHandPnt.x - leftHandPnt.x;
-    
-    if ( b_Phase[2] || b_Phase[3] ) {
-        for ( i=0; i<numMovies; i++ ) {
-            if ( butt[i].isOn && !isVideoPlaying ) {
-                curr_video = i;
-                currVideoName = butt[i].videoName;
-                videoPlayer[i].loadMovie(butt[i].videoName);
-                videoPlayer[i].setLoopState(OF_LOOP_NONE);
-                videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
-                videoPlayer[i].play();
-                //ball.playTime = ofGetElapsedTimeMillis()*0.001;
-                isVideoPlaying = true;
+            if ( b_Phase[3] && movsToSend.back() != curr_video && curr_video != -1 ) {
+                movsToSend.push_back(curr_video);
+            }
+            
+            for ( j=0; j<numButts; j++ )
+                if (StopCheck)
+                    butt[i].isOn = false;
+            
+            if ( currentTime - stopTime > playTimeOffset )
+                StopCheck = false;
+            
+            // stop everything
+            if ( overheadChk && StopCheck ) {
+                //videoPlayer[i].stop();
+                //videoPlayer[i].close();
+                //videoImage[i].clear();
+                localPlayer.stop();
+                localPlayer.close();
+                localImage.clear();
+                isVideoPlaying = false;
+                curr_video = -1;
+                //ball.Position.set(rightHandPnt);
+                //ball.released = false;
             }
         }
-    }
-    
-    if ( curr_video != -1){
-        videoPlayer[curr_video].update();
-        videoImage[curr_video].setFromPixels(videoPlayer[curr_video].getPixels(),
-                                             videoPlayer[curr_video].getWidth(),
-                                             videoPlayer[curr_video].getHeight(),
-                                             OF_IMAGE_COLOR);
         
-        videoLoc[curr_video].set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+        ///////////////////////////
+        // HANDLE VIDEO PLAYBACK //
+        ///////////////////////////
+        imageWidth = rightHandPnt.x - leftHandPnt.x;
+        imageHeight = rightHandPnt.x - leftHandPnt.x;
         
-        if ( videoPlayer[curr_video].getIsMovieDone() ) {
-            videoPlayer [curr_video].close();
-            videoImage  [curr_video].clear();
-            curr_video = -1;
-            isVideoPlaying = false;
-            isVideoLoaded = false;
+        if ( b_Phase[2] || b_Phase[3] ) {
+            for ( i=0; i<numMovies; i++ ) {
+                if ( butt[i].isOn && !isVideoPlaying ) {
+                    curr_video = i;
+                    currVideoName = butt[i].videoName;
+                    localPlayer.loadMovie(currVideoName);
+                    localPlayer.setLoopState(OF_LOOP_NONE);
+                    localImage.allocate(localPlayer.getWidth(), localPlayer.getHeight(), OF_IMAGE_COLOR);
+                    localPlayer.play();
+//                    videoPlayer[i].loadMovie(butt[i].videoName);
+//                    videoPlayer[i].setLoopState(OF_LOOP_NONE);
+//                    videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
+//                    videoPlayer[i].play();
+                    //ball.playTime = ofGetElapsedTimeMillis()*0.001;
+                    isVideoPlaying = true;
+                }
+            }
         }
-    }
         
+        if ( curr_video != -1){
+            localPlayer.update();
+            localImage.setFromPixels(localPlayer.getPixels(), localPlayer.getWidth(), localPlayer.getHeight(), OF_IMAGE_COLOR);
+            //videoPlayer[curr_video].update();
+            //videoImage[curr_video].setFromPixels(videoPlayer[curr_video].getPixels(),
+                                                 //videoPlayer[curr_video].getWidth(),
+                                                 //videoPlayer[curr_video].getHeight(),
+                                                 //OF_IMAGE_COLOR);
+            //videoLoc[curr_video].set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+            localLoc.set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+            
+            //if ( videoPlayer[curr_video].getIsMovieDone() ) {
+            if ( localPlayer.getIsMovieDone() ) {
+                localPlayer.close();
+                localImage.clear();
+                //videoPlayer [curr_video].close();
+                //videoImage  [curr_video].clear();
+                curr_video = -1;
+                isVideoPlaying = false;
+                isVideoLoaded = false;
+            }
+        }
     }
     
     
@@ -322,7 +337,6 @@ void testApp::draw(){
     //openNIDevice.drawDebug();
     //ofPopMatrix();
     
-    ofSetColor(ofColor::white);
     
     /////////////////////
     // DRAW EVERYTHING //
@@ -332,8 +346,6 @@ void testApp::draw(){
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);  // see through the grid and buttons
     
     LocalGrid.drawGrid();
-    
-
     
     for ( i=0; i<LocalGrid.Ydim; i++ ) {
         for ( j=0; j<LocalGrid.Xdim; j++ ) {
@@ -378,49 +390,48 @@ void testApp::draw(){
     
     ofSetColor(ofColor::white);
     if ( curr_video != -1 && !b_Phase[4]) {
-        videoImage[curr_video].resize(imageWidth, imageHeight);
-        videoLoc[curr_video] = videoLoc[curr_video];
-        videoImage[curr_video].draw(videoLoc[curr_video]);
+        localImage.resize(imageWidth, imageHeight);
+        localImage.draw(localLoc);
     }
     
-    // move remote grid over a little
-    ofPushMatrix();
-    ofTranslate(0.0, -kinHeight);
+    
+    ofSetColor(phaseColors[Phase]);
+    ofTriangle(Tri[0], Tri[1], Tri[2]);
+    ofPopMatrix();
+    
+    // draw remote grid
     RemoteGrid.drawGrid();
     
-    if ( b_Phase[4] ) {
+    if ( b_Phase[3] || b_Phase[4] ) {
         
-         for ( i=1; i<movsToSend.size(); i++ ) {
-         j = movsToSend.at(i);
-         if ( !videoLoaded[j] ) {
-         videoPlayer[j].loadMovie(butt[j].videoName);
-         videoPlayer[j].setLoopState(OF_LOOP_NONE);
-         videoImage[j].allocate(videoPlayer[j].getWidth(),
-         videoPlayer[j].getHeight(),
-         OF_IMAGE_COLOR);
-         videoPlayer[j].play();
-         videoLoaded[j] = true;
-         }
-             
-             videoPlayer[j].update();
-             videoImage[j].setFromPixels(videoPlayer[j].getPixels(),
-                                                  videoPlayer[j].getWidth(),
-                                                  videoPlayer[j].getHeight(),
-                                                  OF_IMAGE_COLOR);
-              videoLoc[j] = RemoteGrid.regionCorner[LocToRemMap[j]];
-              
-              ofSetColor(ofColor::white);
-              videoImage[j].resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
-              videoImage[j].draw(videoLoc[j]);
-              
-         }
+        for ( i=1; i<movsToSend.size(); i++ ) {
+            j = movsToSend.at(i);
+            if ( !videoLoaded[j] ) {
+                videoPlayer[j].loadMovie(butt[j].videoName);
+                videoPlayer[j].setLoopState(OF_LOOP_NONE);
+                videoImage[j].allocate(videoPlayer[j].getWidth(),
+                                       videoPlayer[j].getHeight(),
+                                       OF_IMAGE_COLOR);
+                videoPlayer[j].play();
+                videoLoaded[j] = true;
+            }
+            
+            videoPlayer[j].update();
+            videoImage[j].setFromPixels(videoPlayer[j].getPixels(),
+                                        videoPlayer[j].getWidth(),
+                                        videoPlayer[j].getHeight(),
+                                        OF_IMAGE_COLOR);
+            videoLoc[j] = RemoteGrid.regionCorner[LocToRemMap[j]];
+            
+            ofSetColor(ofColor::white);
+            videoImage[j].resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
+            videoImage[j].draw(videoLoc[j]);
+            
+        }
         
     }
     
     
-    ofPopMatrix();
-    
-    ofPopMatrix();
     
     /////////////////////////
     // FEEDBACK STATEMENTS //
@@ -516,6 +527,10 @@ void testApp::draw(){
         statementCounter++;
     }
     
+    MSG = "Phase: " + ofToString(Phase);
+    verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
+    statementCounter++;
+    
     for ( i=0; i<movsToSend.size(); i++ ) {
         MSG = "movsToSend: " + ofToString(movsToSend.at(i));
         verdana.drawString(MSG, dbplx, dbply+dbpo*statementCounter);
@@ -560,6 +575,53 @@ void testApp::keyPressed(int key){
             kinectTiltAngle = ofClamp(kinectTiltAngle - 1, -30, 30);
             kinectHardwareDriver.setTiltAngle(kinectTiltAngle);
             break;
+            
+        case '0':
+            PhaseTime[0] = currentTime + PhaseDuration[0];
+            for ( i=1; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
+            b_Phase[0] = true;
+            for ( i=1; i<5; i++ )  b_Phase[i] = false;
+            
+            break;
+            
+        case '1':
+            PhaseTime[0] = 0.0;
+            PhaseTime[1] = currentTime + PhaseDuration[1];
+            for ( i=2; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
+            for ( i=0; i<5; i++ )  b_Phase[i] = false;
+            b_Phase[1] = true;
+            break;
+            
+            
+        case '2':
+            PhaseTime[0] = 0.0;
+            PhaseTime[1] = 0.01;
+            PhaseTime[2] = currentTime + PhaseDuration[1];
+            for ( i=3; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
+            for ( i=0; i<5; i++ )  b_Phase[i] = false;
+            b_Phase[2] = true;
+            break;
+            
+        case '3':
+            PhaseTime[0] = 0.0;
+            PhaseTime[1] = 0.01;
+            PhaseTime[2] = 0.02;
+            PhaseTime[3] = currentTime + PhaseDuration[3];
+            PhaseTime[4] = currentTime + PhaseDuration[4] + PhaseTime[3];
+            for ( i=0; i<5; i++ )  b_Phase[i] = false;
+            b_Phase[3] = true;
+            break;
+            
+        case '4':
+            PhaseTime[0] = 0.0;
+            PhaseTime[1] = 0.01;
+            PhaseTime[2] = 0.02;
+            PhaseTime[3] = 0.03;
+            PhaseTime[4] = currentTime + PhaseDuration[4];
+            for ( i=0; i<5; i++ )  b_Phase[i] = false;
+            b_Phase[1] = true;
+            break;
+            
             
         default:
             break;
