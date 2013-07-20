@@ -36,7 +36,7 @@ void testApp::setup() {
     LocalGrid.setCorners(kinWidth, kinHeight);
     RemoteGrid.setColor(ofColor::black);
     RemoteGrid.setCorners(kinWidth, kinHeight);
-
+    
     ////////////////////////////
     // set button coordinates //
     ////////////////////////////
@@ -74,42 +74,37 @@ void testApp::setup() {
     //ball.screen_width = windowWidth;
     //ball.Position.set(origin);
     
-    butt[0].videoName  = "movies/01.mov";
-    butt[1].videoName  = "movies/02.mov";
-    butt[2].videoName  = "movies/03.mov";
-    butt[3].videoName  = "movies/04.mov";
-    butt[4].videoName  = "movies/05.mov";
-    butt[5].videoName  = "movies/06.mov";
-    butt[6].videoName  = "movies/07.mov";
-    butt[7].videoName  = "movies/08.mov";
-    butt[8].videoName  = "movies/09.mov";
-    butt[9].videoName  = "movies/10.mov";
-    butt[10].videoName = "movies/11.mov";
-    butt[11].videoName = "movies/12.mov";
-    butt[12].videoName = "movies/13.mov";
-    butt[13].videoName = "movies/14.mov";
-    butt[14].videoName = "movies/15.mov";
-    butt[15].videoName = "movies/16.mov";
-    butt[16].videoName = "movies/17.mov";
-    butt[17].videoName = "movies/18.mov";
-    butt[18].videoName = "movies/19.mov";
-    butt[19].videoName = "movies/20.mov";
-    
-    ofSetColor(ofColor::white);
-    for ( i=0; i<numMovies; i++ ) {
-        videoPlayer[i].loadMovie(butt[i].videoName);
-        videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
-    }
+    movie[0].name =  "movies/01.mov";
+    movie[1].name =  "movies/02.mov";
+    movie[2].name =  "movies/03.mov";
+    movie[3].name =  "movies/04.mov";
+    movie[4].name =  "movies/05.mov";
+    movie[5].name =  "movies/06.mov";
+    movie[6].name =  "movies/07.mov";
+    movie[7].name =  "movies/08.mov";
+    movie[8].name =  "movies/09.mov";
+    movie[9].name =  "movies/10.mov";
+    movie[10].name = "movies/11.mov";
+    movie[11].name = "movies/12.mov";
+    movie[12].name = "movies/13.mov";
+    movie[13].name = "movies/14.mov";
+    movie[14].name = "movies/15.mov";
+    movie[15].name = "movies/16.mov";
+    movie[16].name = "movies/17.mov";
+    movie[17].name = "movies/18.mov";
+    movie[18].name = "movies/19.mov";
+    movie[19].name = "movies/20.mov";
+    for ( i=0; i<20; i++ ) movie[i].load();
     
     PhaseDuration[0] = 0.40*60.0; // boot time for the program nothing can be selected
     PhaseDuration[1] = 0.01*60.0; // first phase of performance; nothing can be selected
     PhaseDuration[2] = 0.01*60.0; // second phase of performance; videos can be played but not sent
-    PhaseDuration[3] = 3.00*60.0;  // third phase of performance; videos that are stopped will be sent
+    PhaseDuration[3] = 3.00*60.0; // third phase of performance; videos that are stopped will be sent
     PhaseDuration[4] = 60.0*60.0; // fourth phase of performance; videos will be arriving and playing
     
     PhaseTime[0] = PhaseDuration[0];
     for ( i=1; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
-
+    
     
     b_Phase[0] = true;  
     b_Phase[1] = false;
@@ -118,7 +113,7 @@ void testApp::setup() {
     b_Phase[4] = false;
     
     movsToSend.push_back(-1);
- 
+    
     for ( i=0; i<numMovies; i++ ) videoLoaded[i] = false;
     
     
@@ -233,9 +228,7 @@ void testApp::update(){
                 stopTime = ofGetElapsedTimeMillis()*0.001;
             }
             
-            if ( b_Phase[3] && movsToSend.back() != curr_video && curr_video != -1 ) {
-                movsToSend.push_back(curr_video);
-            }
+
             
             for ( j=0; j<numButts; j++ )
                 if (StopCheck)
@@ -246,16 +239,12 @@ void testApp::update(){
             
             // stop everything
             if ( overheadChk && StopCheck ) {
-                //videoPlayer[i].stop();
-                //videoPlayer[i].close();
-                //videoImage[i].clear();
-                localPlayer.stop();
-                localPlayer.close();
-                localImage.clear();
+                if ( b_Phase[3] && movsToSend.back() != curr_video && curr_video != -1 ) {
+                    movsToSend.push_back(curr_video);
+                }
+                localMov.stop();
                 isVideoPlaying = false;
                 curr_video = -1;
-                //ball.Position.set(rightHandPnt);
-                //ball.released = false;
             }
         }
         
@@ -269,62 +258,27 @@ void testApp::update(){
             for ( i=0; i<numMovies; i++ ) {
                 if ( butt[i].isOn && !isVideoPlaying ) {
                     curr_video = i;
-                    currVideoName = butt[i].videoName;
-                    localPlayer.loadMovie(currVideoName);
-                    localPlayer.setLoopState(OF_LOOP_NONE);
-                    localImage.allocate(localPlayer.getWidth(), localPlayer.getHeight(), OF_IMAGE_COLOR);
-                    localPlayer.play();
-//                    videoPlayer[i].loadMovie(butt[i].videoName);
-//                    videoPlayer[i].setLoopState(OF_LOOP_NONE);
-//                    videoImage[i].allocate(videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
-//                    videoPlayer[i].play();
-                    //ball.playTime = ofGetElapsedTimeMillis()*0.001;
+                    currVideoName = movie[i].name;
+                    localMov.name = currVideoName;
+                    localMov.load();
+                    localMov.play();
                     isVideoPlaying = true;
                 }
             }
         }
         
         if ( curr_video != -1){
-            localPlayer.update();
-            localImage.setFromPixels(localPlayer.getPixels(), localPlayer.getWidth(), localPlayer.getHeight(), OF_IMAGE_COLOR);
-            //videoPlayer[curr_video].update();
-            //videoImage[curr_video].setFromPixels(videoPlayer[curr_video].getPixels(),
-                                                 //videoPlayer[curr_video].getWidth(),
-                                                 //videoPlayer[curr_video].getHeight(),
-                                                 //OF_IMAGE_COLOR);
-            //videoLoc[curr_video].set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
-            localLoc.set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+            localMov.update();
+            localMov.Loc.set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
             
-            //if ( videoPlayer[curr_video].getIsMovieDone() ) {
-            if ( localPlayer.getIsMovieDone() ) {
-                localPlayer.close();
-                localImage.clear();
-                //videoPlayer [curr_video].close();
-                //videoImage  [curr_video].clear();
+            if ( localMov.Player.getIsMovieDone() ) {
+                localMov.stop();
                 curr_video = -1;
                 isVideoPlaying = false;
                 isVideoLoaded = false;
             }
         }
     }
-    
-    
-    //    videoPlayer[i].update();
-    //    if ( curr_video > -1 ) {
-    //        videoImage[i].setFromPixels(videoPlayer[i].getPixels(), videoPlayer[i].getWidth(), videoPlayer[i].getHeight(), OF_IMAGE_COLOR);
-    //    }
-    
-    //    if ( videoPlayer[i].getIsMovieDone() ) {
-    //        videoPlayer[i].close();
-    //        videoImage[i].clear();
-    //        curr_video = -1;
-    //        isVideoPlaying = false;
-    //        isVideoLoaded = false;
-    //    }
-    
-    //    old ball gesture
-    //    ball.Hand = rightHandPnt;
-    //    ball.update();
     
 }
 
@@ -377,23 +331,11 @@ void testApp::draw(){
         ofCircle(videoTriggerPnt.x, videoTriggerPnt.y, 10);
     }
     
-    //    if ( ball.released && isVideoPlaying ) {
-    //        imageLocation.set(ball.Position.x, ball.Position.y);
-    //        if ( ball.stop ) {
-    //            videoPlayer.stop();
-    //            videoPlayer.close();
-    //            videoImage.clear();
-    //        }
-    //    }
-    //    ofSetColor(ofColor::yellow);
-    //    ofCircle(ball.Position.x, ball.Position.y, 20);
-    
     ofSetColor(ofColor::white);
     if ( curr_video != -1 && !b_Phase[4]) {
-        localImage.resize(imageWidth, imageHeight);
-        localImage.draw(localLoc);
+        localMov.Image.resize(imageWidth, imageHeight);
+        localMov.Image.draw(localMov.Loc);
     }
-    
     
     ofSetColor(phaseColors[Phase]);
     ofTriangle(Tri[0], Tri[1], Tri[2]);
@@ -406,31 +348,19 @@ void testApp::draw(){
         
         for ( i=1; i<movsToSend.size(); i++ ) {
             j = movsToSend.at(i);
-            if ( !videoLoaded[j] ) {
-                videoPlayer[j].loadMovie(butt[j].videoName);
-                videoPlayer[j].setLoopState(OF_LOOP_NONE);
-                videoImage[j].allocate(videoPlayer[j].getWidth(),
-                                       videoPlayer[j].getHeight(),
-                                       OF_IMAGE_COLOR);
-                videoPlayer[j].play();
-                videoLoaded[j] = true;
-            }
             
-            videoPlayer[j].update();
-            videoImage[j].setFromPixels(videoPlayer[j].getPixels(),
-                                        videoPlayer[j].getWidth(),
-                                        videoPlayer[j].getHeight(),
-                                        OF_IMAGE_COLOR);
-            videoLoc[j] = RemoteGrid.regionCorner[LocToRemMap[j]];
+            if ( !movie[j].loaded )  movie[j].load();
+            if ( !movie[j].playing ) movie[j].play();
             
+            movie[j].update();
+            movie[j].Loc.set(RemoteGrid.regionCorner[LocToRemMap[j]]);
+            movie[j].Image.resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
             ofSetColor(ofColor::white);
-            videoImage[j].resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
-            videoImage[j].draw(videoLoc[j]);
+            movie[j].Image.draw(movie[j].Loc);
             
         }
         
     }
-    
     
     
     /////////////////////////

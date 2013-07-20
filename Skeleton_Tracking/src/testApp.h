@@ -370,37 +370,45 @@ public:
 class MOVIE {
 public:
     string name;
-    ofVideoPlayer vidPlayer;
-    ofImage vidImage;
-    ofPoint vidLoc;
+    ofVideoPlayer Player;
+    ofImage Image;
+    ofPoint Loc;
     bool loaded = false;
     bool playing = false;
     
     void load(){
-        vidPlayer.loadMovie(name);
-        vidPlayer.setLoopState(OF_LOOP_NONE);
-        vidImage.allocate(vidPlayer.getWidth(), vidPlayer.getHeight(), OF_IMAGE_COLOR);
-        loaded = true;
+        if ( !loaded ) {
+            Player.loadMovie(name);
+            Player.setLoopState(OF_LOOP_NORMAL);
+            Image.allocate(Player.getWidth(), Player.getHeight(), OF_IMAGE_COLOR);
+            loaded = true;
+        }
     }
     
     void play(){
         if ( loaded ) {
-            vidPlayer.play();
+            Player.play();
             playing = true;
         }
     }
     
     void stop() {
-        vidPlayer.stop();
-        vidPlayer.close();
-        vidImage.clear();
-        loaded = false;
-        playing = false;
+        if ( loaded ) {
+            Player.stop();
+            Player.close();
+            Image.clear();
+            loaded = false;
+            playing = false;
+        }
     }
     
     void update() {
-        vidPlayer.update();
+        if ( loaded ) {
+            Player.update();
+            Image.setFromPixels(Player.getPixels(), Player.getWidth(), Player.getHeight(), OF_IMAGE_COLOR);
+        }
     }
+    
 };
 
 
@@ -448,6 +456,9 @@ public:
     
     int buttWidth=60, buttHeight=60, numButts=5;
     BUTTON butt[20];
+    
+    MOVIE movie[20];
+    MOVIE localMov;
     
 	ofxOpenNI openNIDevice;
     int numUsers = 0;
@@ -510,9 +521,9 @@ public:
     bool StopCheck = false;
     int testButton = 14;
     static const int numMovies = 20;
-    ofVideoPlayer localPlayer;
-    ofImage localImage;
-    ofPoint localLoc;
+    //ofVideoPlayer localPlayer;
+    //ofImage localImage;
+    //ofPoint localLoc;
     ofVideoPlayer videoPlayer[numMovies];
     ofImage videoImage[numMovies];
     bool videoLoaded[numMovies];
@@ -529,7 +540,7 @@ public:
     double PhaseDuration[5];
     bool b_Phase[5];
     int Phase = 0;
-
+    
     
     // remote send list
     vector<int> movsToSend;
@@ -547,3 +558,6 @@ public:
 
 
 #endif
+
+
+
