@@ -131,12 +131,13 @@ public:
 
 class GRID{
 public:
-    static const int Xdim = 5;
+    static const int Xdim = 4;
     static const int Ydim = 4;
     int NumRgns = Xdim*Ydim;
     double Width,Height;
     double Xstride;
     double Ystride;
+    double left,right,top,bottom;
     ofPoint regionCorner[Xdim*Ydim];
     ofPoint corner[4];
     ofColor color = ofColor::black;
@@ -148,13 +149,17 @@ public:
         color = collar;
     }
     
-    void setCorners(double width, double height){
-        Width = width;
-        Height = height;
-        corner[0].set(0,height);
-        corner[1].set(0,0);
-        corner[2].set(width,0);
-        corner[3].set(width,height);
+    void setCorners(double l, double r, double t, double b){
+        left = l;
+        right = r;
+        top = t;
+        bottom = b;
+        Width = abs(right-left);
+        Height = abs(bottom-top);
+        corner[0].set(left, top);
+        corner[1].set(left, bottom);
+        corner[2].set(right, bottom);
+        corner[3].set(right, top);
         
         Xstride = Width/(double)Xdim;
         Ystride = Height/(double)Ydim;
@@ -164,7 +169,7 @@ public:
                 k = i*Xdim + j;
                 ii = (double)i;
                 jj = (double)j;
-                regionCorner[k].set(jj*Xstride, ii*Ystride);
+                regionCorner[k].set(jj*Xstride+left, ii*Ystride+top);
             }
         }
     }
@@ -181,12 +186,12 @@ public:
         
         for ( i=0; i<Xdim; i++ ) {
             jj = (double)i +1;
-            ofLine(Xstride*jj, 0.0, Xstride*jj, Height);
+            ofLine(Xstride*jj+left, top, Xstride*jj+left, bottom);
         }
         
         for ( i=0; i<Ydim; i++ ) {
             jj = (double)i +1;
-            ofLine(0.0, Ystride*jj, Width, Ystride*jj);
+            ofLine(left, Ystride*jj, right, Ystride*jj);
         }
     }
     

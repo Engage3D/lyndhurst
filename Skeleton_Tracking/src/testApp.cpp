@@ -44,21 +44,21 @@ void testApp::setup() {
     ///////////////////////////////////
     // ESTABLISH LOCAL & REMOTE GRID //
     ///////////////////////////////////
-    LocalGrid.setColor(ofColor::blueViolet);
-    LocalGrid.setCorners(kinWidth, kinHeight);
+    LocalGrid.setColor(ofColor::white);
+    LocalGrid.setCorners(30,kinWidth-30,0.0,kinHeight);
     RemoteGrid.setColor(ofColor::black);
-    RemoteGrid.setCorners(kinWidth, kinHeight);
+    RemoteGrid.setCorners(0.0, kinWidth, 0.0, kinHeight);
     
     ////////////////////////////
     // set button coordinates //
     ////////////////////////////
-    buttWidth = kinWidth/LocalGrid.Xdim;
-    buttHeight = kinHeight/LocalGrid.Ydim;
+    buttWidth = LocalGrid.Xstride;
+    buttHeight = LocalGrid.Ystride;
     for ( i=0; i<LocalGrid.Ydim; i++ ) { // height
         for ( j=0; j<LocalGrid.Xdim; j++ ) { // width
             k = i*LocalGrid.Xdim + j;
             butt[k].setButtDimension(buttWidth, buttHeight);
-            butt[k].setButtCorner(j*buttWidth, i*buttHeight);
+            butt[k].setButtCorner(j*buttWidth + LocalGrid.left, i*buttHeight + LocalGrid.top);
             butt[k].color = backgroundColor;
             butt[k].inactiveColor = backgroundColor;
             butt[k].label = k;
@@ -81,7 +81,6 @@ void testApp::setup() {
     RecogTri[0].set(kinWidth, 20.0);
     RecogTri[1].set(kinWidth, 0.0);
     RecogTri[2].set(kinWidth-20.0, 0.0);
-    
     
     origin.set(0.0,0.0);
     leftHand.handColor = ofColor::blue;
@@ -181,16 +180,11 @@ void testApp::update(){
     }
     
     
-    if ( b_Phase[2] || b_Phase[3] ) {
-        
+    //if ( b_Phase[2] || b_Phase[3] ) {
+    if ( !b_Phase[4] ) {
         openNIDevice.update();
         
         numUsers = openNIDevice.getNumTrackedUsers();
-        
-        
-
-        
-        
         
         if ( numUsers > 0 ) {
             ofxOpenNIUser & user = openNIDevice.getTrackedUser(0);
@@ -221,7 +215,6 @@ void testApp::update(){
             // pull right hip coordinates
             rightHipJnt = user.getJoint(JOINT_RIGHT_HIP);
             rightHipPnt = rightHipJnt.getProjectivePosition();
-            
             
             // pull right hand joint coordinates
             rightHandJnt = user.getJoint(JOINT_RIGHT_HAND);
@@ -330,8 +323,8 @@ void testApp::update(){
         }
         
         if ( curr_video != -1){
-            localMov.update();
             localMov.Loc.set(leftHandPnt.x, 0.5*(rightHandPnt.y + leftHandPnt.y) - imageHeight);
+            localMov.update();
             
             if ( localMov.Player.getIsMovieDone() ) {
                 localMov.stop();
