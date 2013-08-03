@@ -195,7 +195,9 @@ public:
 class BUTTON{
 public:
     ofPoint topLeft;
-    ofColor color = ofColor::magenta;
+    ofColor activeColor = ofColor::turquoise;
+    ofColor inactiveColor = ofColor::white;
+    ofColor color;
     ofPoint refPnt;
     double offSetDist;
     int label;
@@ -231,9 +233,9 @@ public:
     }
     void drawButton(){
         if ( isOn ) {
-            setButtColor(ofColor::turquoise);
+            setButtColor(activeColor);
         } else {
-            setButtColor(ofColor::white);
+            setButtColor(inactiveColor);
         }
         ofEnableAlphaBlending();
         ofSetColor(color,127);
@@ -424,6 +426,7 @@ public:
     int dbply = 40;  // debug print location y
     int dbpo = 24;   // debug print offset
     int statementCounter = 0;
+    ofColor backgroundColor=ofColor::black;
     
     ofPoint origin;
     
@@ -462,6 +465,11 @@ public:
     
 	ofxOpenNI openNIDevice;
     int numUsers = 0;
+    bool isUserTracked = false;
+    int UserTrackingOffsetLeft;
+    int UserTrackingOffsetRight;
+    int UserTrackingOffsetTop;
+    int UserTrackingOffsetBottom;
     ofxHardwareDriver kinectHardwareDriver;
     int kinectTiltAngle;
     ofTrueTypeFont verdana;
@@ -548,7 +556,7 @@ public:
     // phase colors
     ofColor phaseColors[5] = {ofColor::black, ofColor::yellow, ofColor::green, ofColor::blue, ofColor::crimson};
     ofPoint Tri[3];
-    
+    ofPoint RecogTri[3];
     
     
     
@@ -558,6 +566,8 @@ public:
 
 
 #endif
+
+
 
 
 

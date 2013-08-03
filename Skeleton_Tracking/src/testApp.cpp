@@ -1,6 +1,11 @@
 #include "testApp.h"
+
+#define FRAMERATE 30
+
 //--------------------------------------------------------------
 void testApp::setup() {
+    
+    ofSetFrameRate(FRAMERATE);
     
     windowWidth = ofGetWidth();
     windowHeight = ofGetHeight();
@@ -22,12 +27,19 @@ void testApp::setup() {
     openNIDevice.setUsePointCloudsAllUsers(false);
     openNIDevice.setPointCloudDrawSizeAllUsers(1); // size of each 'point' in the point cloud
     openNIDevice.setPointCloudResolutionAllUsers(1); // resolution of the mesh created for the point cloud eg., this will use every second depth pixel
+    openNIDevice.setMaxNumUsers(1);
     
-    kinectTiltAngle = 10;
+    kinectTiltAngle = 3;
     kinectHardwareDriver.setup();
     kinectHardwareDriver.setTiltAngle(kinectTiltAngle);
     kinWidth = openNIDevice.getWidth();
     kinHeight = openNIDevice.getHeight();
+    
+    // UserTracked offsets
+    UserTrackingOffsetLeft=100;
+    UserTrackingOffsetRight=kinWidth-100;
+    UserTrackingOffsetTop=100;
+    UserTrackingOffsetBottom=kinHeight-100;
     
     ///////////////////////////////////
     // ESTABLISH LOCAL & REMOTE GRID //
@@ -47,6 +59,8 @@ void testApp::setup() {
             k = i*LocalGrid.Xdim + j;
             butt[k].setButtDimension(buttWidth, buttHeight);
             butt[k].setButtCorner(j*buttWidth, i*buttHeight);
+            butt[k].color = backgroundColor;
+            butt[k].inactiveColor = backgroundColor;
             butt[k].label = k;
         }
     }
@@ -64,6 +78,10 @@ void testApp::setup() {
     Tri[0].set(0.0, 20.0);
     Tri[1].set(20.0, 0.0);
     Tri[2].set(0.0, 0.0);
+    RecogTri[0].set(kinWidth, 20.0);
+    RecogTri[1].set(kinWidth, 0.0);
+    RecogTri[2].set(kinWidth-20.0, 0.0);
+    
     
     origin.set(0.0,0.0);
     leftHand.handColor = ofColor::blue;
@@ -74,6 +92,7 @@ void testApp::setup() {
     //ball.screen_width = windowWidth;
     //ball.Position.set(origin);
     
+    /* Asian Movies */
     movie[0].name =  "movies/01.mov";
     movie[1].name =  "movies/02.mov";
     movie[2].name =  "movies/03.mov";
@@ -94,12 +113,41 @@ void testApp::setup() {
     movie[17].name = "movies/18.mov";
     movie[18].name = "movies/19.mov";
     movie[19].name = "movies/20.mov";
+    
+    /* sc1 Movies : all roughly 100MB, 11=5MB*/
+    movie[7].name = "movies/sc1.1.mov";
+    movie[8].name = "movies/sc1.2.mov";
+    movie[9].name = "movies/sc1.3.mov";
+    movie[10].name = "movies/sc1.4.mov";
+    movie[11].name = "movies/sc1.5.mov";
+    movie[12].name = "movies/sc1.6.mov";
+    movie[13].name = "movies/sc1.7.mov";
+    movie[14].name = "movies/sc1.8.mov";
+    movie[15].name = "movies/sc1.9.mov";
+    movie[16].name = "movies/sc1.10.mov";
+    movie[17].name = "movies/sc1.11.mov";
+    movie[18].name = "movies/sc1.12.mov";
+    
+    /* sc2 Movies : all roughly 15 MB, 12=144MB */
+    movie[7].name = "movies/sc2.1.mov";
+    movie[8].name = "movies/sc2.2.mov";
+    movie[9].name = "movies/sc2.3.mov";
+    movie[10].name = "movies/sc2.4.mov";
+    movie[11].name = "movies/sc2.5.mov";
+    movie[12].name = "movies/sc2.6.mov";
+    movie[13].name = "movies/sc2.7.mov";
+    movie[14].name = "movies/sc2.8.mov";
+    movie[15].name = "movies/sc2.9.mov";
+    movie[16].name = "movies/sc2.10.mov";
+    movie[17].name = "movies/sc2.11.mov";
+    movie[18].name = "movies/sc2.12.mov";
+    
     for ( i=0; i<20; i++ ) movie[i].load();
     
-    PhaseDuration[0] = 0.40*60.0; // boot time for the program nothing can be selected
-    PhaseDuration[1] = 0.01*60.0; // first phase of performance; nothing can be selected
-    PhaseDuration[2] = 0.01*60.0; // second phase of performance; videos can be played but not sent
-    PhaseDuration[3] = 3.00*60.0; // third phase of performance; videos that are stopped will be sent
+    PhaseDuration[0] = 0.30*60.0; // boot time for the program nothing can be selected
+    PhaseDuration[1] = 60.00*60.0; // first phase of performance; nothing can be selected
+    PhaseDuration[2] = 60.00*60.0; // second phase of performance; videos can be played but not sent
+    PhaseDuration[3] = 60.00*60.0; // third phase of performance; videos that are stopped will be sent
     PhaseDuration[4] = 60.0*60.0; // fourth phase of performance; videos will be arriving and playing
     
     PhaseTime[0] = PhaseDuration[0];
@@ -115,8 +163,6 @@ void testApp::setup() {
     movsToSend.push_back(-1);
     
     for ( i=0; i<numMovies; i++ ) videoLoaded[i] = false;
-    
-    
     
     
 }
@@ -135,10 +181,17 @@ void testApp::update(){
     }
     
     
-    if ( !b_Phase[4] ) {
+    if ( b_Phase[2] || b_Phase[3] ) {
+        
         openNIDevice.update();
         
         numUsers = openNIDevice.getNumTrackedUsers();
+        
+        
+
+        
+        
+        
         if ( numUsers > 0 ) {
             ofxOpenNIUser & user = openNIDevice.getTrackedUser(0);
             // pull head joint coordinates
@@ -186,7 +239,16 @@ void testApp::update(){
             leftHand.referencePnt = origin;
             leftHand.update();
             
-            videoTriggerPnt = 0.25*(leftKneePnt + rightKneePnt + leftHipPnt + rightHipPnt);
+            //videoTriggerPnt = 0.25*(leftKneePnt + rightKneePnt + leftHipPnt + rightHipPnt);
+            videoTriggerPnt = torsoPnt;
+            
+            if ( torsoPnt.x > UserTrackingOffsetLeft && torsoPnt.x < UserTrackingOffsetRight
+                && torsoPnt.y > UserTrackingOffsetTop && torsoPnt.y < UserTrackingOffsetBottom ) {
+                isUserTracked = true;
+            }
+            else {
+                isUserTracked=false;
+            }
             
         }
         
@@ -228,7 +290,7 @@ void testApp::update(){
                 stopTime = ofGetElapsedTimeMillis()*0.001;
             }
             
-
+            
             
             for ( j=0; j<numButts; j++ )
                 if (StopCheck)
@@ -284,7 +346,9 @@ void testApp::update(){
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    ofSetColor(ofColor::gray);
+    ofSetColor(backgroundColor);
+    ofBackground(backgroundColor);
+    
     
     //ofPushMatrix();
     ////draw debug (ie., image, depth, skeleton)
@@ -296,10 +360,15 @@ void testApp::draw(){
     // DRAW EVERYTHING //
     /////////////////////
     ofPushMatrix();
-    ofTranslate(0.0, windowHeight - kinHeight);
+    glScaled(-1.0, 1.0, 1.0);
+    ofTranslate(-kinWidth, windowHeight - kinHeight);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);  // see through the grid and buttons
     
     LocalGrid.drawGrid();
+    
+    ofSetColor(ofColor::steelBlue);
+    ofLine(UserTrackingOffsetLeft, 0.0, UserTrackingOffsetLeft, kinHeight);
+    ofLine(UserTrackingOffsetRight, 0.0, UserTrackingOffsetRight, kinHeight);
     
     for ( i=0; i<LocalGrid.Ydim; i++ ) {
         for ( j=0; j<LocalGrid.Xdim; j++ ) {
@@ -337,8 +406,17 @@ void testApp::draw(){
         localMov.Image.draw(localMov.Loc);
     }
     
-    ofSetColor(phaseColors[Phase]);
-    ofTriangle(Tri[0], Tri[1], Tri[2]);
+    //ofSetColor(phaseColors[Phase]);
+    //ofTriangle(Tri[0], Tri[1], Tri[2]);
+    
+    numUsers = openNIDevice.getNumTrackedUsers();
+    if ( isUserTracked && openNIDevice.getNumTrackedUsers()==1 ) { ofSetColor(ofColor::green); }
+    else if ( numUsers == 1 && !isUserTracked ) { ofSetColor(ofColor::yellow); }
+    else if ( numUsers == 0 && !isUserTracked ) { ofSetColor(ofColor::red); }
+    ofTriangle(RecogTri[0], RecogTri[1], RecogTri[2]);
+    ofSetColor(backgroundColor);
+    
+    
     ofPopMatrix();
     
     // draw remote grid
@@ -391,7 +469,11 @@ void testApp::draw(){
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
     statementCounter++;
     
-    MSG = "RH z position = " + ofToString(rightHand.PosAvg);
+    MSG = "isUserTracked = " + ofToString(isUserTracked);
+    verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
+    statementCounter++;
+    
+    MSG = "torsoPnt = " + ofToString(torsoPnt);
     verdana.drawString(MSG, dbplx, dbply + dbpo*statementCounter);
     statementCounter++;
     
@@ -512,6 +594,10 @@ void testApp::keyPressed(int key){
             b_Phase[0] = true;
             for ( i=1; i<5; i++ )  b_Phase[i] = false;
             
+            for ( i=0; i<numMovies; i++ ) movie[i].stop();
+            movsToSend.clear();
+            movsToSend.push_back(-1);
+            
             break;
             
         case '1':
@@ -520,6 +606,11 @@ void testApp::keyPressed(int key){
             for ( i=2; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
             for ( i=0; i<5; i++ )  b_Phase[i] = false;
             b_Phase[1] = true;
+            
+            for ( i=0; i<numMovies; i++ ) movie[i].stop();
+            movsToSend.clear();
+            movsToSend.push_back(-1);
+            
             break;
             
             
@@ -530,6 +621,12 @@ void testApp::keyPressed(int key){
             for ( i=3; i<5; i++ ) PhaseTime[i] = PhaseTime[i-1] + PhaseDuration[i];
             for ( i=0; i<5; i++ )  b_Phase[i] = false;
             b_Phase[2] = true;
+            
+            for ( i=0; i<numMovies; i++ ) movie[i].stop();
+            
+            movsToSend.clear();
+            movsToSend.push_back(-1);
+            
             break;
             
         case '3':
@@ -540,6 +637,11 @@ void testApp::keyPressed(int key){
             PhaseTime[4] = currentTime + PhaseDuration[4] + PhaseTime[3];
             for ( i=0; i<5; i++ )  b_Phase[i] = false;
             b_Phase[3] = true;
+            
+            for ( i=0; i<numMovies; i++ ) movie[i].stop();
+            
+            movsToSend.clear();
+            movsToSend.push_back(-1);
             break;
             
         case '4':
@@ -550,6 +652,18 @@ void testApp::keyPressed(int key){
             PhaseTime[4] = currentTime + PhaseDuration[4];
             for ( i=0; i<5; i++ )  b_Phase[i] = false;
             b_Phase[1] = true;
+            
+            for ( i=0; i<numMovies; i++ ) movie[i].stop();
+            movsToSend.clear();
+            movsToSend.push_back(-1);
+            
+            break;
+            
+        case 'r':
+            
+            openNIDevice.resetUserTracking( 0 , true);
+            
+            
             break;
             
             
