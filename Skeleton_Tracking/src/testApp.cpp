@@ -181,7 +181,8 @@ void testApp::update(){
     
     
     //if ( b_Phase[2] || b_Phase[3] ) {
-    if ( !b_Phase[4] ) {
+    if ( !b_Phase[4] )
+    {
         openNIDevice.update();
         
         numUsers = openNIDevice.getNumTrackedUsers();
@@ -335,6 +336,13 @@ void testApp::update(){
         }
     }
     
+    if ( numUsers != 1 ){
+        for ( i=0; i<numMovies; i++ ){
+            if ( movie[i].playing )
+                movie[i].stop();
+        }
+    }
+    
 }
 
 //--------------------------------------------------------------
@@ -417,6 +425,7 @@ void testApp::draw(){
     
     if ( b_Phase[3] || b_Phase[4] ) {
         
+        ofSetColor(ofColor::white);
         for ( i=1; i<movsToSend.size(); i++ ) {
             j = movsToSend.at(i);
             
@@ -426,7 +435,6 @@ void testApp::draw(){
             movie[j].update();
             movie[j].Loc.set(RemoteGrid.regionCorner[LocToRemMap[j]]);
             movie[j].Image.resize(RemoteGrid.Xstride, RemoteGrid.Ystride);
-            ofSetColor(ofColor::white);
             movie[j].Image.draw(movie[j].Loc);
             
         }
