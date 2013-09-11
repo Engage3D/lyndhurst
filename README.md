@@ -1,4 +1,4 @@
-lyndhurst
+Lucid Streaming
 =========
 
 Development of a motion controlled video playback system using the Microsoft Kinect and OpenFrameworks. Use of Low-Latency (LoLa) Cameras were used to transmit video feeds of performers from one site in Chattanooga, TN to another. The Performance occured in early August 2013 for the 2nd GigTank Demo Day. The two sites used were the Chattanooga Public Library's 4th Floor and the Chattanooga Theatre Centre.
